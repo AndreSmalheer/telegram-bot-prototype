@@ -66,6 +66,45 @@ def add_bot():
     finally:
         conn.close()
 
+@app.route("/delete_bot", methods=["POST"])
+def delete_bot():
+    data = request.get_json(force=True)
+
+    bot_name  = data.get("bot_name")
+    bot_token = data.get("bot_token")
+    bot_id    = data.get("id")
+
+    if bot_name is None and bot_token is None and bot_id is None:
+        return jsonify({"error": "No bot_name + bot_token or id previded"}), 400
+
+    cursor, conn = get_db_connection()
+    
+    try:
+        messages = []
+
+        if bot_id:
+            cursor.execute("DELETE FROM bots WHERE id = ?", (bot_id,))
+            messages.append(f"Bot with ID {bot_id} deleted.")
+
+        elif bot_token:
+            cursor.execute("DELETE FROM bots WHERE token = ?", (bot_token,))
+            messages.append("Bot deleted by token.")
+            
+        elif bot_name:
+            cursor.execute("DELETE FROM bots WHERE name = ?", (bot_name.lower(),))
+            messages.append(f"Bot '{bot_name}' deleted by name.")
+
+        conn.commit()
+        return jsonify({"success": True, "messages": messages})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
 @app.route("/notify", methods=["POST"])
 def notify():
     data = request.get_json(force=True)
@@ -123,4 +162,4 @@ def status():
     return "Server Online"
 
 if __name__ == "__main__":
-    app.run(port=5000)
+    app.run(host="0.0.0.0", port=5000)

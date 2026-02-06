@@ -24,6 +24,19 @@ Adds a new bot to the local database.
 
 ---
 
+### `POST /delete_bot`
+Delete a bot by name bot_token or chat_id
+
+*Important:*  
+You only need **one** of these parameters to delete a bot.
+
+**Parameters:**
+- `bot_name` — The name of the bot you want to delete
+- `bot_token` — The bot token provided by Telegram
+- `bot_id` — The bot id from the database
+
+---
+
 ### `GET /list_bots`
 
 Lists all bots stored in the database.
