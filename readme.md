@@ -48,7 +48,7 @@ Lists all bots stored in the database.
 
 1. Clone this repository:
    ```bash
-   git clone <repo-url>
+   git clone https://github.com/AndreSmalheer/telegram-bot-prototype
    ```
 
 2. Install all required dependencies:
