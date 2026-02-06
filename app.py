@@ -1,0 +1,126 @@
+from flask import Flask, request, jsonify
+import requests
+import sqlite3
+import base64
+
+
+app = Flask(__name__)
+
+db_file = "data.db"
+
+def get_db_connection(db_file = db_file):
+    conn = sqlite3.connect(db_file)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    return cursor, conn
+
+def get_bot_data(bot_name):
+    bot_name = bot_name.lower()
+    
+    # Connect to database
+    cursor, conn = get_db_connection()
+
+    cursor.execute("""
+    SELECT * 
+    FROM bots 
+    WHERE name = ?
+    """, (bot_name,))
+
+    bot = cursor.fetchone()
+    conn.close()
+
+    return bot
+
+@app.route("/add_bot", methods=["POST"])
+def add_bot():
+    data = request.get_json(force=True)
+
+    bot_name  = data.get("bot_name", None)
+    bot_token = data.get("bot_token", None)
+    chat_id = data.get("chat_id", None)
+
+    if not chat_id:
+        return jsonify({"status": "error", "message": "Missing chat ID"}), 400
+
+    if not bot_name:
+        return jsonify({"status": "error", "message": "Bot name missing"}), 400
+
+    if not bot_token:
+        return jsonify({"status": "error", "message": "Bot token missing"}), 400
+
+    cursor, conn = get_db_connection()
+
+    try:
+        cursor.execute("""
+            INSERT INTO bots (name, token, chat_id) 
+            VALUES (?, ?, ?)
+        """, (bot_name.lower(), bot_token, chat_id))
+
+        conn.commit()
+        return {"status": "success", "message": "bot succsefully created", "bot_id": cursor.lastrowid}
+
+    except sqlite3.IntegrityError as e:
+        return {"status": "error", "message": str(e)}
+
+    finally:
+        conn.close()
+
+@app.route("/notify", methods=["POST"])
+def notify():
+    data = request.get_json(force=True)
+    bot = data.get("bot", None)
+    text = data.get("text", None)
+
+    if not text:
+        return jsonify({"status": "error", "message": "No text provided"}), 400
+    
+    if not bot:
+        return jsonify({"status": "error", "message": "No bot provided"}), 400
+    
+    data = get_bot_data(bot.lower())
+
+    if data:
+        name = data['name']
+        token = data['token']
+        CHAT_ID = data['chat_id']
+
+        if not name:
+            return jsonify({"status": "error", "message": "Bot name not found in db"}), 400
+
+        if not token:
+            return jsonify({"status": "error", "message": "Bot token not found in db"}), 400
+
+        if not CHAT_ID:
+            return jsonify({"status": "error", "message": "No chat ID found in db"}), 400
+ 
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = {"chat_id": CHAT_ID, "text": text}
+
+        response = requests.post(url, data=payload, timeout=10)  
+        response.raise_for_status()  
+
+        return jsonify({"status": "sent", "telegram_response": response.json()}), 200
+    else:
+        return jsonify({"status": "error", "message": "no data in db"}), 400
+
+@app.route("/list_bots")
+def list_bots():
+    cursor, conn = get_db_connection()
+
+    cursor.execute("""SELECT * FROM bots """)
+    rows = cursor.fetchall()
+    conn.close()
+
+    bots = [dict(row) for row in rows]
+
+    print(bots)
+
+    return jsonify({"status": "ok", "bots": bots}), 200
+
+@app.route("/")
+def status():
+    return "Server Online"
+
+if __name__ == "__main__":
+    app.run(port=5000)
