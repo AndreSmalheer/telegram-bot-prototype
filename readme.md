@@ -24,6 +24,25 @@ Adds a new bot to the local database.
 
 ---
 
+### `POST /edit_bot`
+Edits an existing bot’s data.
+
+**Important:**  
+You only need **one** identifier to select the bot.
+
+**Bot identifier (choose one):**
+- `bot_name` — The current name of the bot
+- `bot_token` — The current Telegram bot token
+- `bot_id` — The bot ID from the database
+
+**Editable fields:**
+- `new_name` — The new name for the bot
+- `new_token` — The new Telegram bot token
+- `new_chat_id` — The new Telegram chat ID
+
+
+---
+
 ### `POST /delete_bot`
 Delete a bot by name bot_token or chat_id
 

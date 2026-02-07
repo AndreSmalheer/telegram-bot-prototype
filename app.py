@@ -70,9 +70,9 @@ def add_bot():
 def delete_bot():
     data = request.get_json(force=True)
 
-    bot_name  = data.get("bot_name")
-    bot_token = data.get("bot_token")
-    bot_id    = data.get("id")
+    bot_name  = data.get("bot_name", None)
+    bot_token = data.get("bot_token", None)
+    bot_id    = data.get("id", None)
 
     if bot_name is None and bot_token is None and bot_id is None:
         return jsonify({"error": "No bot_name + bot_token or id previded"}), 400
@@ -96,6 +96,72 @@ def delete_bot():
 
         conn.commit()
         return jsonify({"success": True, "messages": messages})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route("/edit_bot", methods=["POST"])
+def edit_bot():
+    data = request.get_json(force=True)
+
+    bot_id    = data.get("id")
+    bot_name  = data.get("bot_name")
+    bot_token = data.get("bot_token")
+
+    new_name     = data.get("new_name")
+    new_token    = data.get("new_token")
+    new_chat_id  = data.get("new_chat_id")
+
+    if not (bot_id or bot_name or bot_token):
+        return jsonify({"error": "No identifier provided (id, bot_name, or bot_token)"}), 400
+
+    if not (new_name or new_token or new_chat_id):
+        return jsonify({"error": "No new values provided to update"}), 400
+
+    cursor, conn = get_db_connection()
+
+    try:
+        updates = []
+        values = []
+
+        if new_name:
+            updates.append("name = ?")
+            values.append(new_name.lower())
+
+        if new_token:
+            updates.append("token = ?")
+            values.append(new_token)
+
+        if new_chat_id:
+            updates.append("chat_id = ?")
+            values.append(new_chat_id)
+
+        set_clause = ", ".join(updates)
+
+        if bot_id:
+            query = f"UPDATE bots SET {set_clause} WHERE id = ?"
+            values.append(bot_id)
+
+        elif bot_token:
+            query = f"UPDATE bots SET {set_clause} WHERE token = ?"
+            values.append(bot_token)
+
+        else: 
+            query = f"UPDATE bots SET {set_clause} WHERE name = ?"
+            values.append(bot_name.lower())
+
+        cursor.execute(query, tuple(values))
+        conn.commit()
+
+        if cursor.rowcount == 0:
+            return jsonify({"error": "No bot found to update"}), 404
+
+        return jsonify({"success": True, "message": "Bot updated successfully"})
 
     except Exception as e:
         conn.rollback()
